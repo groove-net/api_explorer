@@ -25,7 +25,7 @@ void render(const std::vector<parser::EndpointInfo> &endpoints,
   int tab_index = 0;
 
   // 3. State variables for Explorer Tab
-  std::string json_file_path = "";
+  bool use_json_payload = false;
   std::string response_text = "Select an endpoint and press Execute.";
 
   // 4. State variables for History Tab
@@ -47,7 +47,7 @@ void render(const std::vector<parser::EndpointInfo> &endpoints,
     response_text = "Executing HTTPie call...\n";
 
     std::string method_copy = ep.method;
-    std::string body_file_copy = json_file_path;
+    std::string body_file_copy = use_json_payload ? "payload.json" : "";
     int current_selected = selected_endpoint;
 
     std::thread([&, method_copy, full_url, body_file_copy, current_selected]() {
@@ -112,13 +112,13 @@ void render(const std::vector<parser::EndpointInfo> &endpoints,
   main_menu_option.entries_option.transform = colorize_menu_entry;
   auto menu = Menu(&menu_entries, &selected_endpoint, main_menu_option);
 
-  InputOption file_input_option;
-  file_input_option.placeholder = "e.g., payload.json (optional)";
-  auto file_input = Input(&json_file_path, file_input_option);
+  auto file_toggle = Checkbox("Use payload.json", &use_json_payload);
 
   // Added a custom animated style to the button for extra pop
   ButtonOption btn_option = ButtonOption::Animated(Color::Green);
   auto execute_button = Button("Execute via HTTPie", do_request, btn_option);
+
+  auto explorer_container = Container::Vertical({file_toggle, execute_button});
 
   // 6. UI Components: History
   MenuOption history_option;
@@ -133,7 +133,7 @@ void render(const std::vector<parser::EndpointInfo> &endpoints,
     int session_idx = history_session_map[history_selected];
     const auto *entry = app_session.get_entry(session_idx);
     if (entry) {
-      json_file_path = entry->payload_file;
+      use_json_payload = (!entry->payload_file.empty());
     }
 
     tab_index = 0;
@@ -143,7 +143,6 @@ void render(const std::vector<parser::EndpointInfo> &endpoints,
       Menu(&history_menu_entries, &history_selected, history_option);
 
   // 7. Component Composition
-  auto explorer_container = Container::Vertical({file_input, execute_button});
   auto history_container = Container::Vertical({history_menu});
 
   auto tab_container =
@@ -179,8 +178,8 @@ void render(const std::vector<parser::EndpointInfo> &endpoints,
                                     : endpoints[selected_endpoint].route)) |
                    bold}),
          separator(), text(""),
-         hbox({text("  JSON Body File: ") | color(Color::CyanLight),
-               file_input->Render()}),
+         hbox({text("  JSON Body: ") | color(Color::CyanLight),
+               file_toggle->Render()}),
          text(""), separator(), text(""), execute_button->Render() | center,
          text(""), separator(),
          text("  Response:") | bold | color(Color::Yellow), text(""),
